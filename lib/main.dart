@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -56,12 +56,12 @@ class MyHomePageState extends State<MyHomePage> {
     print(arg);
   }
 
-  void showPdfPopup(BuildContext context, String base64PdfData) async {
+  void showPdfPopup(BuildContext context, String base64PdfData, String nomeArquivo) async {
     final DefaultCacheManager cacheManager = DefaultCacheManager();
 
     try {
       final fetchedFile = await cacheManager.putFile(
-        'document.pdf',
+        nomeArquivo.toString(),
         base64Decode(base64PdfData),
       );
 
@@ -96,14 +96,31 @@ class MyHomePageState extends State<MyHomePage> {
             ),
             ElevatedButton.icon(
               onPressed: () async {
-                final fileName = 'document.pdf';
+                final fileName = nomeArquivo + '.pdf';
                 final filePathWithExtension =
-                    path.join(fetchedFile.parent.path, fileName);
+                path.join(fetchedFile.parent.path, fileName);
 
-// Rename the file to include ".pdf" extension
-                await fetchedFile.rename(filePathWithExtension);
+                // Check if the file already exists at the new path
+                if (await File(filePathWithExtension).exists()) {
+                  // Handle this case, such as generating a unique filename
+                  print('File already exists at $filePathWithExtension');
+                  await Share.shareFiles(
+                    [filePathWithExtension],
+                    text: 'Compartilhar PDF',
+                  );
+                  return;
+                }
 
-// Share the file using Share.shareFiles
+                // Rename the file to include ".pdf" extension
+                try {
+                  await fetchedFile.rename(filePathWithExtension);
+                  print('File renamed to $filePathWithExtension');
+                } catch (e) {
+                  print('Error renaming file: $e');
+                  return;
+                }
+
+                // Share the file using Share.shareFiles
                 await Share.shareFiles(
                   [filePathWithExtension],
                   text: 'Compartilhar PDF',
@@ -168,10 +185,12 @@ class MyHomePageState extends State<MyHomePage> {
                     // print("teste 3");
                     // print(json.decode(args[0])["texto"]);
                     final jsonArgs = json.decode(args[0])["texto"];
+                    final nomeArquivo = json.decode(args[0])["nome"];
+                    print(nomeArquivo);
                     // print("a chamada foi um sucesso " + jsonArgs[0]);
                     // // Pass the converted JSON to the functions
                     // openPdf(jsonArgs.toString());
-                    showPdfPopup(context, jsonArgs);
+                    showPdfPopup(context, jsonArgs,nomeArquivo);
                   });
             },
             // onLoadStart: (controller, url) {
